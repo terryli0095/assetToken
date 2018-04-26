@@ -59,7 +59,7 @@ contract DiamondRegistry is ERC721Basic {
   }
 
 
-  event DiamondRegistered(uint tokenID, bytes32 agency, bytes32 certificateNumber, uint caratSize, uint timestamp);
+  event DiamondRegistered(uint tokenID, bytes32 agency, bytes32 certificateNumber, uint caratSize,address registrant, uint timestamp);
   event DiamondRemoved(uint tokenID, address remover , address removedFrom ,uint timestamp);
 
 
@@ -85,7 +85,7 @@ contract DiamondRegistry is ERC721Basic {
 
     function register(bytes32 _agency,bytes32 _certificateNumber, uint _caratSize) public payable {
         uint tokenId = uint(keccak256(_agency,_certificateNumber,_caratSize));
-        require(tokenOwner[tokenId] != address(0));
+        require(tokenOwner[tokenId] == address(0));
         Diamond memory newDiamond;
         newDiamond.agency =_agency;
         newDiamond.certificateNumber = _certificateNumber;
@@ -96,7 +96,7 @@ contract DiamondRegistry is ERC721Basic {
         tokenOwner[tokenId] = msg.sender;
         ownedTokensCount[msg.sender] += 1;
 
-        DiamondRegistered(tokenId, _agency, _certificateNumber, _caratSize, now);
+        emit DiamondRegistered(tokenId, _agency, _certificateNumber, _caratSize,msg.sender, now);
     }
 
     function registerDiamonds(bytes32[] _agencys, bytes32[] _certificateNumbers, uint[] _caratSizes) payable external {
