@@ -4,18 +4,19 @@ import "./ERC721.sol";
 import "./SafeMath.sol";
 import "./AddressUtils.sol";
 import "./ERC721Receiver.sol";
+import "./Ownable.sol";
 
 
-contract DiamondRegistry is ERC721Basic {
+contract DiamondRegistry is ERC721Basic, Ownable {
     using SafeMath for uint256;
     using AddressUtils for address;
 
 
+  uint public EtherUsdRate;
+
   // Equals to `bytes4(keccak256("onERC721Received(address,uint256,bytes)"))`
   // which can be also obtained as `ERC721Receiver(0).onERC721Received.selector`
   bytes4 constant ERC721_RECEIVED = 0xf0b9e5ba;
-
-  address public ADMIN;
 
   // Mapping from token ID to owner
   mapping (uint256 => address) internal tokenOwner;
@@ -46,25 +47,20 @@ contract DiamondRegistry is ERC721Basic {
   }
 
 
-  modifier adminOnly() {
-    require(msg.sender == ADMIN);
-    _;
-  }
-
 
   struct Diamond{
       bytes32 certificateNumber;
       bytes32 agency;
-      uint caratSize;
+      uint caratWeight;
   }
 
 
-  event DiamondRegistered(uint tokenID, bytes32 agency, bytes32 certificateNumber, uint caratSize,address registrant, uint timestamp);
+  event DiamondRegistered(uint tokenID, bytes32 certifier, bytes32 certificateNumber, uint caratWeight,address registrant, uint timestamp);
   event DiamondRemoved(uint tokenID, address remover , address removedFrom ,uint timestamp);
 
 
-  constructor(){
-      ADMIN = msg.sender;
+  constructor(uint _initialRate) public {
+      EtherUsdRate = _initialRate;
   }
 
   function ownerOf(uint256 _tokenId) public view returns (address) {
@@ -82,29 +78,35 @@ contract DiamondRegistry is ERC721Basic {
         require(_owner != address(0));
         return ownedTokensCount[_owner];
     }
+    event yep(uint payed, uint cost);
 
-    function register(bytes32 _agency,bytes32 _certificateNumber, uint _caratSize) public payable {
-        uint tokenId = uint(keccak256(_agency,_certificateNumber,_caratSize));
+    function register(bytes32 _certifier,bytes32 _certificateNumber, uint _caratWeight) public payable {
+        uint cost= getCost(_caratWeight);
+        // require(msg.value >= cost);
+
+        uint tokenId = uint(keccak256(_certifier,_certificateNumber,_caratWeight));
         require(tokenOwner[tokenId] == address(0));
         Diamond memory newDiamond;
-        newDiamond.agency =_agency;
+        newDiamond.agency =_certifier;
         newDiamond.certificateNumber = _certificateNumber;
-        newDiamond.caratSize =_caratSize;
+        newDiamond.caratWeight =_caratWeight;
 
 
         diamondsInfo[tokenId] = newDiamond;
         tokenOwner[tokenId] = msg.sender;
         ownedTokensCount[msg.sender] += 1;
-
-        emit DiamondRegistered(tokenId, _agency, _certificateNumber, _caratSize,msg.sender, now);
+        emit DiamondRegistered(tokenId, _certifier, _certificateNumber, _caratWeight,msg.sender, now);
     }
 
-    function registerDiamonds(bytes32[] _agencys, bytes32[] _certificateNumbers, uint[] _caratSizes) payable external {
-        require(_agencys.length == _caratSizes.length);
-        require(_agencys.length == _certificateNumbers.length);
-        for (uint i = 0; i < _agencys.length; i++){
-            register(_agencys[i],_certificateNumbers[i],_caratSizes[i]);
+    function registerDiamonds(bytes32[] _certifiers, bytes32[] _certificateNumbers, uint[] _caratWeights) payable external {
+        require(_certifiers.length == _caratWeights.length);
+        require(_certifiers.length == _certificateNumbers.length);
+        uint totalFee;
+        for (uint i = 0; i < _certifiers.length; i++){
+            register(_certifiers[i],_certificateNumbers[i],_caratWeights[i]);
+            totalFee+= getCost(_caratWeights[i]);
         }
+        require(msg.value >= totalFee,"not enough fees");
     }
 
   /**
@@ -294,16 +296,29 @@ contract DiamondRegistry is ERC721Basic {
 
 
 
-  function removeFaultyToken(uint _tokenId) adminOnly public {
+  function removeFaultyToken(uint _tokenId) onlyOwner public {
         address removedFrom =  tokenOwner[_tokenId];
         ownedTokensCount[removedFrom] -= 1;
         delete diamondsInfo[_tokenId];
         delete tokenOwner[_tokenId];
-        DiamondRemoved( _tokenId, removedFrom ,msg.sender , now);
+        emit DiamondRemoved( _tokenId, removedFrom ,msg.sender , now);
 
   }
 
+  function usdPrice(uint _caratWeight) public pure returns(uint){
+      return 10 + 10*(_caratWeight**2)/10000;
+  }
 
+  function setRate(uint _rate) public{
+      EtherUsdRate = _rate;
+  }
+
+  function getCost(uint _caratWeight) public view returns(uint) {
+      uint usd = usdPrice(_caratWeight);
+      uint etherPrice = usd*10**18/EtherUsdRate;
+      return (etherPrice);
+
+  }
 
 
 }
