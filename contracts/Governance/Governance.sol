@@ -30,6 +30,8 @@ contract Governance{
         uint numValue;
     }
     event VoteAddr(address votingAddr);
+
+
     constructor (address _tokenAddress, uint _quorumCount, uint _voteDuration) public {
         quorumCount = _quorumCount;
         voteDuration = _voteDuration;
@@ -72,11 +74,42 @@ contract Governance{
         //emit event
         emit ProposalStarted("addMember",msg.sender, pollId);
     }
-    //propose to change wallet
-    //propose to change dividends
 
-    //propose to add member
-    //propose to remove member
+    function proposeRemoveMember(address _member) isBadgeHolder {
+        require(badgeHolder[_member]);
+        uint pollId = votingContract.startPoll(quorumCount,voteDuration);
 
-    //voting period length
-} 
+        proposalMap[pollId] = proposalInfo({ProposalType:"removeMember",
+        Proposer:msg.sender,
+        addressValue:_member,
+        bytesValue:"",
+        numValue:0}
+        );
+
+        //emit event
+        emit ProposalStarted("removeMember",msg.sender, pollId);
+    }
+
+
+    function proposeChangeWallet(address _newWalletAddress) isBadgeHolder {
+        require(_newWalletAddress != address(0));
+        //add to check if wallet address satisfy Interface
+
+    }
+
+    function proposeChangeWallet(address _newDividendsAddr) isBadgeHolder {
+
+
+    }
+
+    function proposeChangeQuorum(uint _newQuorum) isBadgeHolder {
+
+
+    }
+
+    function proposeChangeVoteLength(uint _newVoteLength) isBadgeHolder {
+
+
+    }
+
+}
